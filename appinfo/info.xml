@@ -55,7 +55,7 @@ Available in **English**, **Italian**, **German**, **French**, and **Spanish**.
 
 Requires a self-hosted [DocuSeal](https://www.docuseal.com) Enterprise instance (Nextcloud 28–34, PHP 8.1+).
 	]]></description>
-	<version>1.1.11</version>
+	<version>1.1.12</version>
 	<licence>agpl</licence>
 	<author mail="admin@ce4u.it">GEST CE</author>
 	<namespace>DocuSeal</namespace>

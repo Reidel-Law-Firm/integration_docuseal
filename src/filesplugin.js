@@ -109,5 +109,9 @@ registerFileAction({
 		})
 		return null
 	},
-	order: 90,
+	// Position the action between "Rename" (order 10) and "Move/Copy" (order
+	// 15) so it lands in the first screenful of the row action menu. At
+	// order 90 it ended up just before "Delete" and was clipped below the
+	// viewport on shorter screens — see fix notes in CHANGELOG 1.1.12.
+	order: 12,
 })

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.1.12] - 2026-05-13
+
+### Fixed
+- "Richiedi firma con DocuSeal" was registered correctly but invisible in the
+  Files row action menu on shorter viewports: with the previous `order: 90`
+  the item rendered at y≈830, below the menu's visible area on screens shorter
+  than ~900px. Moved to `order: 12` so it appears right after "Rinomina" and
+  is always visible in the first screenful. Live-confirmed in Chrome at 756px
+  viewport height before the source change.
+
 ## [1.1.11] - 2026-05-13
 
 ### Fixed
