@@ -24,11 +24,14 @@ class Application extends App implements IBootstrap {
 	public function __construct(array $urlParams = []) {
 		parent::__construct(self::APP_ID, $urlParams);
 
-		// Load file action scripts in constructor (same pattern as integration_docusign)
+		// Load Files-app integration scripts when the Files app boots.
+		// filesplugin → adds the "Request signature" right-click action.
+		// sidebar    → adds the "Signatures" sidebar tab.
 		$container = $this->getContainer();
 		$eventDispatcher = $container->get(IEventDispatcher::class);
 		$eventDispatcher->addListener(LoadAdditionalScriptsEvent::class, function (): void {
 			Util::addScript(self::APP_ID, self::APP_ID . '-filesplugin');
+			Util::addScript(self::APP_ID, self::APP_ID . '-sidebar');
 			Util::addStyle(self::APP_ID, 'files-style');
 		});
 	}

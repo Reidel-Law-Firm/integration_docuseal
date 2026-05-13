@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace OCA\DocuSeal\Controller;
 
+use Exception;
 use OCA\DocuSeal\AppInfo\Application;
 use OCA\DocuSeal\Service\DocuSealAPIService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
-use OCP\AppFramework\Http\Attribute\NoAdminRequired;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IAppConfig;
 use OCP\IRequest;
 use OCP\Security\ICrypto;
+use Psr\Log\LoggerInterface;
 
 class ConfigController extends Controller {
 
@@ -22,6 +23,7 @@ class ConfigController extends Controller {
 		private IAppConfig $appConfig,
 		private ICrypto $crypto,
 		private DocuSealAPIService $docuSealAPIService,
+		private LoggerInterface $logger,
 	) {
 		parent::__construct($appName, $request);
 	}
@@ -30,65 +32,84 @@ class ConfigController extends Controller {
 	 * Get admin configuration
 	 */
 	public function getConfig(): DataResponse {
-		$serverUrl = $this->appConfig->getValueString(Application::APP_ID, 'server_url', '');
-		$apiKeySet = $this->appConfig->getValueString(Application::APP_ID, 'api_key', '') !== '';
-		$webhookSecretSet = $this->appConfig->getValueString(Application::APP_ID, 'webhook_secret', '') !== '';
-
-		return new DataResponse([
-			'server_url' => $serverUrl,
-			'api_key_set' => $apiKeySet,
-			'webhook_secret_set' => $webhookSecretSet,
-		]);
+		return new DataResponse($this->buildStatePayload());
 	}
 
 	/**
-	 * Save admin configuration
+	 * Save admin configuration.
+	 *
+	 * The save itself never depends on the DocuSeal server being reachable:
+	 * we always persist what was provided and return 200, even when the
+	 * connection probe afterwards fails. The frontend distinguishes the two
+	 * via the `connection_test.success` flag.
 	 */
 	public function setConfig(): DataResponse {
 		$serverUrl = $this->request->getParam('server_url');
 		$apiKey = $this->request->getParam('api_key');
 		$webhookSecret = $this->request->getParam('webhook_secret');
 
-		if ($serverUrl !== null) {
-			$this->appConfig->setValueString(
-				Application::APP_ID,
-				'server_url',
-				rtrim($serverUrl, '/')
-			);
-		}
+		try {
+			if ($serverUrl !== null) {
+				$normalized = rtrim(trim((string)$serverUrl), '/');
+				if ($normalized !== '' && !preg_match('#^https?://#i', $normalized)) {
+					return new DataResponse(
+						['error' => 'server_url must start with http:// or https://'],
+						Http::STATUS_BAD_REQUEST,
+					);
+				}
+				$this->appConfig->setValueString(Application::APP_ID, 'server_url', $normalized);
+			}
 
-		if ($apiKey !== null && $apiKey !== '') {
-			$this->appConfig->setValueString(
-				Application::APP_ID,
-				'api_key',
-				$this->crypto->encrypt($apiKey)
-			);
-		}
+			if ($apiKey !== null && $apiKey !== '') {
+				$this->appConfig->setValueString(
+					Application::APP_ID,
+					'api_key',
+					$this->crypto->encrypt((string)$apiKey),
+				);
+			}
 
-		if ($webhookSecret !== null) {
-			$this->appConfig->setValueString(
-				Application::APP_ID,
-				'webhook_secret',
-				$webhookSecret
-			);
-		}
-
-		// Test connection if both are set
-		if ($this->docuSealAPIService->isConfigured()) {
-			$test = $this->docuSealAPIService->testConnection();
-			return new DataResponse([
-				'server_url' => $this->appConfig->getValueString(Application::APP_ID, 'server_url', ''),
-				'api_key_set' => true,
-				'webhook_secret_set' => $this->appConfig->getValueString(Application::APP_ID, 'webhook_secret', '') !== '',
-				'connection_test' => $test,
+			if ($webhookSecret !== null) {
+				// Stored in clear text on purpose: webhook validation compares
+				// the raw value against the header sent by DocuSeal.
+				$this->appConfig->setValueString(
+					Application::APP_ID,
+					'webhook_secret',
+					(string)$webhookSecret,
+				);
+			}
+		} catch (Exception $e) {
+			$this->logger->error('DocuSeal: failed to save configuration: ' . $e->getMessage(), [
+				'app' => Application::APP_ID,
+				'exception' => $e,
 			]);
+			return new DataResponse(
+				['error' => 'Failed to save configuration: ' . $e->getMessage()],
+				Http::STATUS_INTERNAL_SERVER_ERROR,
+			);
 		}
 
-		return new DataResponse([
-			'server_url' => $this->appConfig->getValueString(Application::APP_ID, 'server_url', ''),
-			'api_key_set' => $this->appConfig->getValueString(Application::APP_ID, 'api_key', '') !== '',
-			'webhook_secret_set' => $this->appConfig->getValueString(Application::APP_ID, 'webhook_secret', '') !== '',
-		]);
+		$payload = $this->buildStatePayload();
+
+		// Best-effort connection probe — never fails the save.
+		if ($this->docuSealAPIService->isConfigured()) {
+			$payload['connection_test'] = $this->docuSealAPIService->testConnection();
+		}
+
+		return new DataResponse($payload);
+	}
+
+	/**
+	 * Manually trigger a connection test against the DocuSeal server.
+	 * Lets the admin re-check the connection without having to re-save.
+	 */
+	public function testConnection(): DataResponse {
+		if (!$this->docuSealAPIService->isConfigured()) {
+			return new DataResponse([
+				'success' => false,
+				'message' => 'DocuSeal is not configured. Set the server URL and API key first.',
+			], Http::STATUS_BAD_REQUEST);
+		}
+		return new DataResponse($this->docuSealAPIService->testConnection());
 	}
 
 	/**
@@ -100,5 +121,13 @@ class ConfigController extends Controller {
 			$this->appConfig->deleteKey(Application::APP_ID, $key);
 		}
 		return new DataResponse(['success' => true]);
+	}
+
+	private function buildStatePayload(): array {
+		return [
+			'server_url' => $this->appConfig->getValueString(Application::APP_ID, 'server_url', ''),
+			'api_key_set' => $this->appConfig->getValueString(Application::APP_ID, 'api_key', '') !== '',
+			'webhook_secret_set' => $this->appConfig->getValueString(Application::APP_ID, 'webhook_secret', '') !== '',
+		];
 	}
 }
