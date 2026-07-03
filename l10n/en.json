@@ -4,7 +4,6 @@
         "Integration with DocuSeal Enterprise for electronic signatures": "Integration with DocuSeal Enterprise for electronic signatures",
         "Connected accounts": "Connected accounts",
         "DocuSeal": "DocuSeal",
-
         "Configura la connessione al tuo server DocuSeal Enterprise per abilitare la firma elettronica dei documenti.": "Configure the connection to your DocuSeal Enterprise server to enable electronic document signing.",
         "URL del server DocuSeal": "DocuSeal server URL",
         "API Key": "API Key",
@@ -42,7 +41,6 @@
         "Notifiche in tempo reale": "Real-time notifications",
         "Ricerca firme dalla barra di ricerca": "Search signatures from search bar",
         "Widget Dashboard": "Dashboard Widget",
-
         "Richiedi firma con DocuSeal": "Request signature with DocuSeal",
         "DocuSeal non è configurato. Contatta l'amministratore.": "DocuSeal is not configured. Contact your administrator.",
         "Richiedi firma": "Request signature",
@@ -71,7 +69,6 @@
         "Richiesta di firma inviata con successo! I destinatari riceveranno una notifica.": "Signature request sent successfully! Recipients will be notified.",
         "Errore nell'invio della richiesta": "Error sending request",
         "Errore: ": "Error: ",
-
         "Firme DocuSeal": "DocuSeal Signatures",
         "Firme": "Signatures",
         "Aggiorna": "Refresh",
@@ -101,7 +98,6 @@
         "Rifiutato:": "Declined:",
         "Scarica log di audit completo (PDF)": "Download complete audit log (PDF)",
         "Errore nel caricamento dell'audit trail": "Error loading audit trail",
-
         "%s ha firmato il documento \"%s\"": "%s signed the document \"%s\"",
         "{signer} ha firmato il documento {file}": "{signer} signed the document {file}",
         "%s ha rifiutato di firmare \"%s\"%s": "%s declined to sign \"%s\"%s",
@@ -110,12 +106,33 @@
         "Tutte le firme sono state completate per {file}. Il documento firmato è stato salvato.": "All signatures have been completed for {file}. The signed document has been saved.",
         "La richiesta di firma per \"%s\" è scaduta": "The signature request for \"%s\" has expired",
         "La richiesta di firma per {file} è scaduta": "The signature request for {file} has expired",
-
         "Hai richiesto la firma per \"%s\"": "You requested a signature for \"%s\"",
         "%s ha firmato \"%s\"": "%s signed \"%s\"",
         "%s ha rifiutato di firmare \"%s\"": "%s declined to sign \"%s\"",
         "Tutte le firme completate per \"%s\"": "All signatures completed for \"%s\"",
-        "Richiesta di firma annullata per \"%s\"": "Signature request cancelled for \"%s\""
+        "Richiesta di firma annullata per \"%s\"": "Signature request cancelled for \"%s\"",
+        "Campi configurati": "Fields configured",
+        "Caricamento editor...": "Loading editor...",
+        "Configura campi del documento": "Configure document fields",
+        "Configura campi firma": "Configure signature fields",
+        "Configurazione campi salvata!": "Field configuration saved!",
+        "Connection successful": "Connection successful",
+        "Date": "Date",
+        "DocuSeal is not configured. Please contact your administrator.": "DocuSeal is not configured. Please contact your administrator.",
+        "Dopo l'invio si aprirà la finestra di firma direttamente qui, senza uscire da Nextcloud.": "After sending, the signing window will open directly here, without leaving Nextcloud.",
+        "Errore nel caricamento dell'editor": "Error loading editor",
+        "Firma subito dopo l'invio (se sei tra i firmatari)": "Sign right after sending (if you are one of the signers)",
+        "Impossibile aprire la firma embedded: ": "Could not open embedded signing: ",
+        "Indietro": "Back",
+        "Modifica campi": "Edit fields",
+        "Nessun URL di firma disponibile per il tuo utente": "No signing URL available for your user",
+        "Please sign the attached document.": "Please sign the attached document.",
+        "Request signature with DocuSeal": "Request signature with DocuSeal",
+        "Salva e continua": "Save and continue",
+        "Signature": "Signature",
+        "Signature request": "Signature request",
+        "Trascina e posiziona firma, data, testo e altri campi sul documento": "Drag and place signature, date, text and other fields onto the document",
+        "https://docuseal.example.com": "https://docuseal.example.com"
     },
     "plurals": {}
 }

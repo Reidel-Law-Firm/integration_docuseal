@@ -1,5 +1,5 @@
 <template>
-	<div class="docuseal-sidebar">
+	<div v-if="requests.length > 0 || loading" class="docuseal-sidebar">
 		<div class="sidebar-header">
 			<h3 class="sidebar-title">
 				<DocuSealIcon :size="20" />
@@ -12,18 +12,8 @@
 
 		<NcLoadingIcon v-if="loading" :size="32" />
 
-		<div v-if="error" class="empty-state error-state">
-			<p>{{ error }}</p>
-			<NcButton type="secondary" @click="loadRequests">
-				{{ t('integration_docuseal', 'Riprova') }}
-			</NcButton>
-		</div>
-
-		<div v-else-if="!loading && requests.length === 0" class="empty-state">
+		<div v-if="requests.length === 0 && !loading" class="empty-state">
 			<p>{{ t('integration_docuseal', 'Nessuna richiesta di firma per questo file.') }}</p>
-			<p class="empty-hint">
-				{{ t('integration_docuseal', 'Clicca col tasto destro sul file e seleziona "Richiedi firma con DocuSeal" per iniziare.') }}
-			</p>
 		</div>
 
 		<div v-for="request in requests" :key="request.id" class="signature-request">
@@ -175,7 +165,6 @@ export default {
 		return {
 			requests: [],
 			loading: false,
-			error: null,
 			showEmbed: false,
 			currentEmbedUrl: null,
 			showAudit: false,
@@ -195,19 +184,13 @@ export default {
 	methods: {
 		t,
 		async loadRequests() {
-			if (!this.fileId) {
-				return
-			}
 			this.loading = true
-			this.error = null
 			try {
 				const url = generateUrl('/apps/integration_docuseal/requests/file/{fileId}', { fileId: this.fileId })
 				const response = await axios.get(url)
-				this.requests = Array.isArray(response.data) ? response.data : []
+				this.requests = response.data || []
 			} catch (e) {
 				console.error('Error loading signature requests:', e)
-				this.requests = []
-				this.error = t('integration_docuseal', 'Impossibile caricare le richieste di firma. Verifica che DocuSeal sia configurato.')
 			}
 			this.loading = false
 		},
@@ -358,15 +341,6 @@ export default {
 	text-align: center;
 	color: var(--color-text-maxcontrast);
 	padding: 20px;
-}
-
-.empty-state.error-state {
-	color: var(--color-error);
-}
-
-.empty-state .empty-hint {
-	margin-top: 8px;
-	font-size: 0.85em;
 }
 
 .signature-request {

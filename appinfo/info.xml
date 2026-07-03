@@ -53,9 +53,9 @@ Available in **English**, **Italian**, **German**, **French**, and **Spanish**.
 4. Optionally configure the webhook URL displayed in the settings panel
 5. Right-click any PDF or DOCX in the Files app and select **Request signature with DocuSeal**
 
-Requires a self-hosted [DocuSeal](https://www.docuseal.com) Enterprise instance (Nextcloud 28–34, PHP 8.1+).
+Requires a self-hosted [DocuSeal](https://www.docuseal.com) Enterprise instance (Nextcloud 30–34, PHP 8.1+).
 	]]></description>
-	<version>1.1.12</version>
+	<version>1.1.10</version>
 	<licence>agpl</licence>
 	<author mail="admin@ce4u.it">GEST CE</author>
 	<namespace>DocuSeal</namespace>
@@ -64,7 +64,7 @@ Requires a self-hosted [DocuSeal](https://www.docuseal.com) Enterprise instance 
 	<website>https://raveng.it</website>
 	<bugs>https://raveng.it</bugs>
 	<dependencies>
-		<nextcloud min-version="28" max-version="34"/>
+		<nextcloud min-version="30" max-version="34"/>
 		<php min-version="8.1"/>
 	</dependencies>
 	<background-jobs>

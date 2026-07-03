@@ -50,18 +50,8 @@ class WebhookController extends Controller {
 
 		// Validate webhook secret if configured
 		if (!$this->validateWebhookSecret($body)) {
-			$presentHeaders = array_filter([
-				'X-Docuseal-Signature' => $this->request->getHeader('X-Docuseal-Signature') !== '',
-				'X-Auth-Secret' => $this->request->getHeader('X-Auth-Secret') !== '',
-				'X-Webhook-Secret' => $this->request->getHeader('X-Webhook-Secret') !== '',
-				'X-Webhook-Token' => $this->request->getHeader('X-Webhook-Token') !== '',
-				'X-Docuseal-Secret' => $this->request->getHeader('X-Docuseal-Secret') !== '',
-				'Authorization' => $this->request->getHeader('Authorization') !== '',
-				'query.secret' => $this->request->getParam('secret', '') !== '',
-			]);
-			$this->logger->warning('DocuSeal webhook: invalid secret. Configure a custom header in DocuSeal (Settings → Webhooks) named X-Auth-Secret with the same value as the Nextcloud webhook secret.', [
+			$this->logger->warning('DocuSeal webhook: invalid secret', [
 				'app' => Application::APP_ID,
-				'credentialsPresent' => array_keys($presentHeaders),
 			]);
 			return new DataResponse(['error' => 'Unauthorized'], Http::STATUS_UNAUTHORIZED);
 		}
@@ -391,64 +381,33 @@ class WebhookController extends Controller {
 	}
 
 	/**
-	 * Validate webhook secret if configured.
-	 *
-	 * DocuSeal lets the admin define one or more custom HTTP headers on each
-	 * webhook (Settings → Webhooks → Custom headers). It does NOT compute an
-	 * HMAC of the body. The typical setup is to add a header like
-	 * `X-Auth-Secret: <shared-secret>` and have the receiver compare the raw
-	 * value. We accept the raw secret in any of the commonly-used header
-	 * names, plus a `?secret=` query param for legacy setups, and still
-	 * support an HMAC-SHA256 signature in `X-Docuseal-Signature` for users
-	 * who proxy webhooks through a signer.
+	 * Validate webhook secret if configured
+	 * DocuSeal can send a custom header with a shared secret
 	 */
 	private function validateWebhookSecret(string $body): bool {
 		$webhookSecret = $this->appConfig->getValueString(Application::APP_ID, 'webhook_secret', '');
 		if ($webhookSecret === '') {
+			// No secret configured, accept all webhooks
 			return true;
 		}
 
-		// 1. HMAC-SHA256 signature (advanced)
+		// Check X-Docuseal-Signature header (HMAC-SHA256)
 		$signature = $this->request->getHeader('X-Docuseal-Signature');
-		if ($signature !== '') {
-			$expectedSignature = hash_hmac('sha256', $body, $webhookSecret);
-			if (hash_equals($expectedSignature, $signature)) {
-				return true;
+		if ($signature === '') {
+			// Fallback: check shared secret in query param
+			$querySecret = $this->request->getParam('secret', '');
+			if ($querySecret === '') {
+				return false;
 			}
-			// X-Docuseal-Signature might also be used as a raw-secret header;
-			// fall through to raw-secret checks below.
+			return hash_equals($webhookSecret, $querySecret);
 		}
 
-		// 2. Raw secret in any of the common header names DocuSeal users pick
-		$rawSecretHeaders = [
-			'X-Auth-Secret',
-			'X-Webhook-Secret',
-			'X-Webhook-Token',
-			'X-Docuseal-Secret',
-			'X-Docuseal-Signature',
-		];
-		foreach ($rawSecretHeaders as $header) {
-			$value = $this->request->getHeader($header);
-			if ($value !== '' && hash_equals($webhookSecret, $value)) {
-				return true;
-			}
+		// DocuSeal may prefix the signature with "sha256="
+		if (str_starts_with($signature, 'sha256=')) {
+			$signature = substr($signature, 7);
 		}
 
-		// 3. Authorization: Bearer <secret>
-		$authHeader = $this->request->getHeader('Authorization');
-		if ($authHeader !== '') {
-			$bearer = preg_replace('/^Bearer\s+/i', '', $authHeader);
-			if ($bearer !== null && $bearer !== '' && hash_equals($webhookSecret, $bearer)) {
-				return true;
-			}
-		}
-
-		// 4. Legacy: ?secret= query param
-		$querySecret = (string)$this->request->getParam('secret', '');
-		if ($querySecret !== '' && hash_equals($webhookSecret, $querySecret)) {
-			return true;
-		}
-
-		return false;
+		$expectedSignature = hash_hmac('sha256', $body, $webhookSecret);
+		return hash_equals($expectedSignature, $signature);
 	}
 }

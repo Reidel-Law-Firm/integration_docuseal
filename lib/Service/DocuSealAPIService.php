@@ -8,8 +8,10 @@ use Exception;
 use OCA\DocuSeal\AppInfo\Application;
 use OCP\Http\Client\IClientService;
 use OCP\IAppConfig;
+use OCP\IL10N;
 use OCP\Security\ICrypto;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 class DocuSealAPIService {
 
@@ -19,6 +21,7 @@ class DocuSealAPIService {
 		private IClientService $clientService,
 		private IAppConfig $appConfig,
 		private ICrypto $crypto,
+		private IL10N $l10n,
 		private LoggerInterface $logger,
 	) {
 	}
@@ -34,19 +37,62 @@ class DocuSealAPIService {
 	}
 
 	/**
-	 * Get decrypted API key
+	 * Detect a legacy / unencrypted API key value. Encrypted values produced
+	 * by ICrypto contain a pipe separator (cipher|iv[|hmac]) with hex/base64
+	 * characters; legacy plaintext keys typically don't match that shape.
+	 */
+	public function looksLikePlaintextKey(string $value): bool {
+		if ($value === '') {
+			return false;
+		}
+		if (strpos($value, '|') === false) {
+			return true;
+		}
+		if (!preg_match('/^[A-Za-z0-9+\/=|]+$/', $value)) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Get decrypted API key. Transparently re-encrypts legacy plaintext values.
+	 * Throws RuntimeException on a real decryption failure.
 	 */
 	public function getApiKey(): string {
-		$encrypted = $this->appConfig->getValueString(Application::APP_ID, 'api_key', '');
-		if ($encrypted === '') {
+		$stored = $this->appConfig->getValueString(Application::APP_ID, 'api_key', '');
+		if ($stored === '') {
 			return '';
 		}
-		try {
-			return $this->crypto->decrypt($encrypted);
-		} catch (Exception $e) {
-			// Might be stored unencrypted (first install)
-			return $encrypted;
+
+		if ($this->looksLikePlaintextKey($stored)) {
+			try {
+				$encrypted = $this->crypto->encrypt($stored);
+				$this->appConfig->setValueString(Application::APP_ID, 'api_key', $encrypted);
+			} catch (Exception $e) {
+				$this->logger->warning('Failed to re-encrypt legacy DocuSeal API key: ' . $e->getMessage(), [
+					'app' => Application::APP_ID,
+				]);
+			}
+			return $stored;
 		}
+
+		try {
+			return $this->crypto->decrypt($stored);
+		} catch (Exception $e) {
+			$this->logger->error('Failed to decrypt DocuSeal API key: ' . $e->getMessage(), [
+				'app' => Application::APP_ID,
+			]);
+			throw new RuntimeException('Unable to decrypt stored DocuSeal API key. Please re-enter it in the admin settings.', 0, $e);
+		}
+	}
+
+	/**
+	 * Read SSL verification preference. Returns false when self-signed
+	 * certificates are explicitly allowed by the admin, true otherwise.
+	 */
+	public function getVerifyOption(): bool {
+		$allowSelfSigned = $this->appConfig->getValueString(Application::APP_ID, 'allow_self_signed', '0');
+		return !($allowSelfSigned === '1' || $allowSelfSigned === 'true');
 	}
 
 	/**
@@ -64,7 +110,7 @@ class DocuSealAPIService {
 		$apiKey = $this->getApiKey();
 
 		if ($serverUrl === '' || $apiKey === '') {
-			throw new Exception('DocuSeal is not configured');
+			throw new RuntimeException('DocuSeal is not configured');
 		}
 
 		$url = $serverUrl . '/api' . $endpoint;
@@ -73,10 +119,11 @@ class DocuSealAPIService {
 		$options = [
 			'headers' => [
 				'X-Auth-Token' => $apiKey,
-				'Content-Type' => 'application/json',
 				'Accept' => 'application/json',
 			],
 			'timeout' => 30,
+			'http_errors' => false,
+			'verify' => $this->getVerifyOption(),
 		];
 
 		try {
@@ -86,19 +133,34 @@ class DocuSealAPIService {
 				}
 				$response = $client->get($url, $options);
 			} elseif ($method === 'POST') {
-				$options['body'] = json_encode($params);
+				$options['json'] = $params;
 				$response = $client->post($url, $options);
 			} elseif ($method === 'PUT') {
-				$options['body'] = json_encode($params);
+				$options['json'] = $params;
 				$response = $client->put($url, $options);
 			} elseif ($method === 'DELETE') {
 				$response = $client->delete($url, $options);
 			} else {
-				throw new Exception('Unsupported HTTP method: ' . $method);
+				throw new RuntimeException('Unsupported HTTP method: ' . $method);
 			}
 
-			$body = $response->getBody();
+			$status = $response->getStatusCode();
+			$body = (string)$response->getBody();
+
+			if ($status >= 400) {
+				$this->logger->error('DocuSeal API HTTP error', [
+					'app' => Application::APP_ID,
+					'method' => $method,
+					'endpoint' => $endpoint,
+					'status' => $status,
+					'body' => $body,
+				]);
+				throw new RuntimeException('DocuSeal API error (HTTP ' . $status . '): ' . $body);
+			}
+
 			return json_decode($body, true) ?? [];
+		} catch (RuntimeException $e) {
+			throw $e;
 		} catch (Exception $e) {
 			$this->logger->error('DocuSeal API error: ' . $e->getMessage(), [
 				'app' => Application::APP_ID,
@@ -161,7 +223,7 @@ class DocuSealAPIService {
 
 		$templateId = $templateResult['id'] ?? null;
 		if ($templateId === null) {
-			throw new Exception('Failed to create template from file');
+			throw new RuntimeException('Failed to create template from file');
 		}
 
 		$this->logger->info('Created template #' . $templateId . ' from file: ' . $fileName, [
@@ -175,7 +237,7 @@ class DocuSealAPIService {
 
 			$fields = [
 				[
-					'name' => 'Firma',
+					'name' => $this->l10n->t('Signature'),
 					'type' => 'signature',
 					'required' => true,
 					'areas' => [[
@@ -187,7 +249,7 @@ class DocuSealAPIService {
 					]],
 				],
 				[
-					'name' => 'Data',
+					'name' => $this->l10n->t('Date'),
 					'type' => 'date',
 					'required' => true,
 					'areas' => [[
@@ -256,8 +318,8 @@ class DocuSealAPIService {
 
 		if ($subject !== null || $message !== null) {
 			$params['message'] = [
-				'subject' => $subject ?? 'Richiesta di firma',
-				'body' => $message ?? 'Si prega di firmare il documento allegato.',
+				'subject' => $subject ?? $this->l10n->t('Signature request'),
+				'body' => $message ?? $this->l10n->t('Please sign the attached document.'),
 			];
 		}
 
@@ -306,8 +368,9 @@ class DocuSealAPIService {
 				'X-Auth-Token' => $this->getApiKey(),
 			],
 			'timeout' => 120,
+			'verify' => $this->getVerifyOption(),
 		]);
-		return $response->getBody();
+		return (string)$response->getBody();
 	}
 
 	/**
@@ -318,7 +381,7 @@ class DocuSealAPIService {
 			$result = $this->getTemplates(1);
 			return [
 				'success' => true,
-				'message' => 'Connection successful',
+				'message' => $this->l10n->t('Connection successful'),
 			];
 		} catch (Exception $e) {
 			return [

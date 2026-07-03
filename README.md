@@ -88,39 +88,10 @@ sudo -u www-data php occ app:enable integration_docuseal
 
 ### 5. Configure Webhook (optional but recommended)
 
-The webhook lets DocuSeal push real-time updates to Nextcloud. Without it, the
-background job still picks up status changes every 15 minutes.
-
-#### In Nextcloud
-
-1. Open **Settings → Connected accounts → DocuSeal**.
-2. Fill in **Webhook Secret** with a random string (e.g. `openssl rand -hex 32`).
-3. Click **Save**.
-
-#### In DocuSeal
-
-1. Open **Settings → Webhooks** in your DocuSeal admin panel.
-2. Set the **Webhook URL** to:
-   `https://your-nextcloud.example.com/apps/integration_docuseal/webhook`
-3. Open **Custom Headers** and add a header:
-   - **Name:** `X-Auth-Secret`
-   - **Value:** the exact secret you saved in Nextcloud
-4. Save the webhook.
-
-#### Verifying
-
-Trigger any event in DocuSeal (e.g. create a template). Then check
-`nextcloud.log` — you should see `DocuSeal webhook received: <event_type>`. If
-you see `invalid secret`, the header name or value does not match.
-
-#### Alternative authentication methods
-
-If you cannot set a custom header, the receiver also accepts:
-
-- `Authorization: Bearer <secret>`
-- a query string: `…/webhook?secret=<secret>`
-- `X-Docuseal-Signature` containing a hex HMAC-SHA256 of the request body (for
-  proxies that sign requests on the way in)
+In the DocuSeal admin panel:
+1. Go to **Settings -> Webhook**
+2. Enter the URL: `https://yournextcloud.com/apps/integration_docuseal/webhook`
+3. (Optional) Set a shared secret for HMAC validation
 
 ---
 

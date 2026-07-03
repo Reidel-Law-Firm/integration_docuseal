@@ -8,7 +8,6 @@ return [
 		['name' => 'config#getConfig', 'url' => '/config', 'verb' => 'GET'],
 		['name' => 'config#setConfig', 'url' => '/config', 'verb' => 'PUT'],
 		['name' => 'config#resetConfig', 'url' => '/config', 'verb' => 'DELETE'],
-		['name' => 'config#testConnection', 'url' => '/config/test', 'verb' => 'POST'],
 
 		// DocuSeal info & templates
 		['name' => 'docuSeal#getInfo', 'url' => '/info', 'verb' => 'GET'],

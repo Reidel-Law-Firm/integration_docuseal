@@ -2,20 +2,7 @@ import { createApp } from 'vue'
 import { translate as t } from '@nextcloud/l10n'
 import SignatureStatusSidebar from './components/SignatureStatusSidebar.vue'
 
-const SIGNABLE_MIMES = new Set([
-	'application/pdf',
-	'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-	'application/msword',
-	'image/png',
-	'image/jpeg',
-	'image/jpg',
-])
-
-function registerSidebarTab() {
-	if (!window.OCA?.Files?.Sidebar?.registerTab) {
-		return false
-	}
-
+if (window.OCA?.Files?.Sidebar) {
 	const sidebarTab = new OCA.Files.Sidebar.Tab({
 		id: 'docuseal-signatures',
 		name: t('integration_docuseal', 'Firme'),
@@ -32,12 +19,7 @@ function registerSidebarTab() {
 		},
 
 		update(fileInfo) {
-			// SignatureStatusSidebar reloads whenever the fileId prop changes;
-			// we let it observe the change through Vue's reactivity instead of
-			// remounting the whole app.
-			if (this._app && this._app._instance) {
-				this._app._instance.props.fileId = fileInfo.id
-			}
+			// Handled by prop reactivity
 		},
 
 		destroy() {
@@ -48,22 +30,10 @@ function registerSidebarTab() {
 		},
 
 		enabled(fileInfo) {
-			const mime = fileInfo?.mimetype || fileInfo?.mime
-			return typeof mime === 'string' && SIGNABLE_MIMES.has(mime)
+			return fileInfo?.mimetype === 'application/pdf'
+				|| fileInfo?.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 		},
 	})
 
 	OCA.Files.Sidebar.registerTab(sidebarTab)
-	return true
-}
-
-// The Files sidebar API may not be ready at the moment the script loads
-// (e.g. when entering Files via the URL bar). Retry on the next tick if
-// it isn't available yet.
-if (!registerSidebarTab()) {
-	document.addEventListener('DOMContentLoaded', () => {
-		if (!registerSidebarTab()) {
-			window.setTimeout(registerSidebarTab, 500)
-		}
-	})
 }

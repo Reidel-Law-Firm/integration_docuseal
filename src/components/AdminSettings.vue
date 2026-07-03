@@ -46,10 +46,7 @@
 				:placeholder="state.webhook_secret_set ? t('integration_docuseal', '● ● ● ● ● (secret già configurato)') : t('integration_docuseal', 'Inserisci un secret per validare i webhook')"
 				@input="onInput">
 			<p class="hint">
-				{{ t('integration_docuseal', 'Se configurato, i webhook in arrivo da DocuSeal saranno validati con questo secret.') }}
-				<br>
-				<strong>{{ t('integration_docuseal', 'Come configurare in DocuSeal:') }}</strong>
-				{{ t('integration_docuseal', 'apri il webhook in DocuSeal → sezione "Custom Headers" → aggiungi un header con nome "X-Auth-Secret" e valore uguale a questo secret.') }}
+				{{ t('integration_docuseal', 'Se configurato, i webhook verranno validati con HMAC-SHA256. Usa lo stesso secret nella configurazione webhook di DocuSeal.') }}
 			</p>
 		</div>
 
@@ -79,13 +76,6 @@
 				:disabled="saving"
 				@click="saveConfig">
 				{{ saving ? t('integration_docuseal', 'Salvataggio...') : t('integration_docuseal', 'Salva') }}
-			</NcButton>
-			<NcButton
-				v-if="state.api_key_set"
-				type="secondary"
-				:disabled="testing"
-				@click="testConnection">
-				{{ testing ? t('integration_docuseal', 'Verifica in corso...') : t('integration_docuseal', 'Testa connessione') }}
 			</NcButton>
 			<NcButton
 				v-if="state.api_key_set"
@@ -144,21 +134,11 @@ export default {
 	},
 
 	data() {
-		const initialState = loadState('integration_docuseal', 'docuseal-config', {
-			server_url: '',
-			api_key_set: false,
-			webhook_secret_set: false,
-		})
 		return {
-			state: {
-				server_url: initialState?.server_url ?? '',
-				api_key_set: !!initialState?.api_key_set,
-				webhook_secret_set: !!initialState?.webhook_secret_set,
-			},
+			state: loadState('integration_docuseal', 'docuseal-config'),
 			apiKey: '',
 			webhookSecret: '',
 			saving: false,
-			testing: false,
 			connectionStatus: null,
 		}
 	},
@@ -176,20 +156,11 @@ export default {
 			this.connectionStatus = null
 		},
 
-		applyStatePayload(payload) {
-			this.state = {
-				server_url: payload?.server_url ?? '',
-				api_key_set: !!payload?.api_key_set,
-				webhook_secret_set: !!payload?.webhook_secret_set,
-			}
-		},
-
 		async saveConfig() {
 			this.saving = true
-			this.connectionStatus = null
 			try {
 				const params = {
-					server_url: (this.state.server_url || '').trim(),
+					server_url: this.state.server_url,
 				}
 				if (this.apiKey !== '') {
 					params.api_key = this.apiKey
@@ -197,11 +168,10 @@ export default {
 				if (this.webhookSecret !== '') {
 					params.webhook_secret = this.webhookSecret
 				}
-
 				const url = generateUrl('/apps/integration_docuseal/config')
 				const response = await axios.put(url, params)
 
-				this.applyStatePayload(response.data)
+				this.state = response.data
 				this.apiKey = ''
 				this.webhookSecret = ''
 
@@ -210,41 +180,16 @@ export default {
 					if (response.data.connection_test.success) {
 						showSuccess(t('integration_docuseal', 'Configurazione salvata e connessione verificata'))
 					} else {
-						// Save succeeded, only the probe failed. Make that obvious.
-						showSuccess(t('integration_docuseal', 'Configurazione salvata'))
+						showError(t('integration_docuseal', 'Configurazione salvata ma la connessione ha fallito: ') + response.data.connection_test.message)
 					}
 				} else {
 					showSuccess(t('integration_docuseal', 'Configurazione salvata'))
 				}
 			} catch (e) {
-				const serverMessage = e?.response?.data?.error
-				showError(
-					serverMessage
-						? t('integration_docuseal', 'Errore nel salvataggio: ') + serverMessage
-						: t('integration_docuseal', 'Errore nel salvataggio della configurazione'),
-				)
-				console.error('DocuSeal save config failed', e)
+				showError(t('integration_docuseal', 'Errore nel salvataggio della configurazione'))
+				console.error(e)
 			}
 			this.saving = false
-		},
-
-		async testConnection() {
-			this.testing = true
-			this.connectionStatus = null
-			try {
-				const url = generateUrl('/apps/integration_docuseal/config/test')
-				const response = await axios.post(url)
-				this.connectionStatus = response.data
-			} catch (e) {
-				this.connectionStatus = {
-					success: false,
-					message: e?.response?.data?.message
-						?? e?.response?.data?.error
-						?? e?.message
-						?? 'Unknown error',
-				}
-			}
-			this.testing = false
 		},
 
 		async resetConfig() {
@@ -254,7 +199,7 @@ export default {
 			try {
 				const url = generateUrl('/apps/integration_docuseal/config')
 				await axios.delete(url)
-				this.applyStatePayload({ server_url: '', api_key_set: false, webhook_secret_set: false })
+				this.state = { server_url: '', api_key_set: false, webhook_secret_set: false }
 				this.connectionStatus = null
 				showSuccess(t('integration_docuseal', 'DocuSeal disconnesso'))
 			} catch (e) {

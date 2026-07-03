@@ -31,12 +31,29 @@ class CSPListener implements IEventListener {
 			return;
 		}
 
-		// Allow the DocuSeal server URL for embedded signing and builder
+		$parts = parse_url($serverUrl);
+		$scheme = $parts['scheme'] ?? null;
+		$host = $parts['host'] ?? null;
+		if ($scheme === null || $host === null) {
+			return;
+		}
+		if (!empty($parts['port'])) {
+			$host .= ':' . $parts['port'];
+		}
+		$origin = $scheme . '://' . $host;
+
+		// Allow the DocuSeal server origin for embedded signing and builder
 		$csp = new ContentSecurityPolicy();
-		$csp->addAllowedFrameDomain($serverUrl);
-		$csp->addAllowedConnectDomain($serverUrl);
-		$csp->addAllowedImageDomain($serverUrl);
-		$csp->addAllowedScriptDomain($serverUrl);
+		$csp->addAllowedFrameDomain($origin);
+		$csp->addAllowedConnectDomain($origin);
+		$csp->addAllowedImageDomain($origin);
+		$csp->addAllowedScriptDomain($origin);
+
+		foreach (['addAllowedStyleDomain', 'addAllowedFontDomain', 'addAllowedMediaDomain', 'addAllowedFormActionDomain'] as $method) {
+			if (method_exists($csp, $method)) {
+				$csp->{$method}($origin);
+			}
+		}
 
 		$event->addPolicy($csp);
 	}

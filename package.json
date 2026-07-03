@@ -1,12 +1,12 @@
 {
 	"name": "integration_docuseal",
-	"version": "1.1.12",
+	"version": "1.1.10",
 	"description": "DocuSeal integration for Nextcloud",
 	"private": true,
 	"scripts": {
-		"build": "NODE_ENV=production webpack --progress --config webpack.config.js",
-		"dev": "NODE_ENV=development webpack --progress --config webpack.config.js",
-		"watch": "NODE_ENV=development webpack --progress --watch --config webpack.config.js",
+		"build": "cross-env NODE_ENV=production webpack --progress --config webpack.config.js",
+		"dev": "cross-env NODE_ENV=development webpack --progress --config webpack.config.js",
+		"watch": "cross-env NODE_ENV=development webpack --progress --watch --config webpack.config.js",
 		"lint": "eslint --ext .js,.vue src",
 		"lint:fix": "eslint --ext .js,.vue --fix src",
 		"stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css"
@@ -31,6 +31,7 @@
 		"@nextcloud/webpack-vue-config": "^7.0.2",
 		"babel-loader": "^10.1.1",
 		"css-loader": "^7.1.4",
+		"cross-env": "^7.0.3",
 		"node-polyfill-webpack-plugin": "^4.0.0",
 		"sass": "^1.98.0",
 		"sass-loader": "^16.0.7",

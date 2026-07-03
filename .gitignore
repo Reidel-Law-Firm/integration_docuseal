@@ -30,3 +30,7 @@ package-lock.json
 
 # Psalm
 /psalm-baseline.xml
+
+# Local dev environment
+docker-compose.yml
+setup-app.ps1
